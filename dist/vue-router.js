@@ -1,6 +1,6 @@
-/**
+/*!
   * vue-router v3.0.1
-  * (c) 2017 Evan You
+  * (c) 2018 Evan You
   * @license MIT
   */
 (function (global, factory) {
@@ -27,8 +27,15 @@ function isError (err) {
   return Object.prototype.toString.call(err).indexOf('Error') > -1
 }
 
+function extend (a, b) {
+  for (var key in b) {
+    a[key] = b[key];
+  }
+  return a
+}
+
 var View = {
-  name: 'router-view',
+  name: 'RouterView',
   functional: true,
   props: {
     name: {
@@ -42,7 +49,9 @@ var View = {
     var parent = ref.parent;
     var data = ref.data;
 
+    // used by devtools to display a router-view badge
     data.routerView = true;
+    data.routerViewName = props.name;
 
     // directly use parent context's createElement() function
     // so that components rendered by router-view can resolve named slots
@@ -116,7 +125,7 @@ var View = {
 
     return h(component, data, children)
   }
-};
+}
 
 function resolveProps (route, config) {
   switch (typeof config) {
@@ -137,13 +146,6 @@ function resolveProps (route, config) {
         );
       }
   }
-}
-
-function extend (to, from) {
-  for (var key in from) {
-    to[key] = from[key];
-  }
-  return to
 }
 
 /*  */
@@ -243,7 +245,6 @@ function stringifyQuery (obj) {
 }
 
 /*  */
-
 
 var trailingSlashRE = /\/?$/;
 
@@ -387,7 +388,7 @@ var toTypes = [String, Object];
 var eventTypes = [String, Array];
 
 var Link = {
-  name: 'router-link',
+  name: 'RouterLink',
   props: {
     to: {
       type: toTypes,
@@ -422,17 +423,17 @@ var Link = {
     var globalExactActiveClass = router.options.linkExactActiveClass;
     // Support global empty active class
     var activeClassFallback = globalActiveClass == null
-            ? 'router-link-active'
-            : globalActiveClass;
+      ? 'router-link-active'
+      : globalActiveClass;
     var exactActiveClassFallback = globalExactActiveClass == null
-            ? 'router-link-exact-active'
-            : globalExactActiveClass;
+      ? 'router-link-exact-active'
+      : globalExactActiveClass;
     var activeClass = this.activeClass == null
-            ? activeClassFallback
-            : this.activeClass;
+      ? activeClassFallback
+      : this.activeClass;
     var exactActiveClass = this.exactActiveClass == null
-            ? exactActiveClassFallback
-            : this.exactActiveClass;
+      ? exactActiveClassFallback
+      : this.exactActiveClass;
     var compareTarget = location.path
       ? createRoute(null, location, null, router)
       : route;
@@ -472,7 +473,6 @@ var Link = {
       if (a) {
         // in case the <a> is a static node
         a.isStatic = false;
-        var extend = _Vue.util.extend;
         var aData = a.data = extend({}, a.data);
         aData.on = on;
         var aAttrs = a.data.attrs = extend({}, a.data.attrs);
@@ -485,7 +485,7 @@ var Link = {
 
     return h(this.tag, data, this.$slots.default)
   }
-};
+}
 
 function guardEvent (e) {
   // don't redirect with control keys
@@ -563,8 +563,8 @@ function install (Vue) {
     get: function get () { return this._routerRoot._route }
   });
 
-  Vue.component('router-view', View);
-  Vue.component('router-link', Link);
+  Vue.component('RouterView', View);
+  Vue.component('RouterLink', Link);
 
   var strats = Vue.config.optionMergeStrategies;
   // use the same hook merging strategy for route hooks
@@ -1074,7 +1074,6 @@ function pathToRegexp (path, keys, options) {
 
   return stringToRegexp(/** @type {string} */ (path), /** @type {!Array} */ (keys), options)
 }
-
 pathToRegexp_1.parse = parse_1;
 pathToRegexp_1.compile = compile_1;
 pathToRegexp_1.tokensToFunction = tokensToFunction_1;
@@ -1270,7 +1269,6 @@ function normalizePath (path, parent, strict) {
 
 /*  */
 
-
 function normalizeLocation (
   raw,
   current,
@@ -1285,9 +1283,9 @@ function normalizeLocation (
 
   // relative params
   if (!next.path && next.params && current) {
-    next = assign({}, next);
+    next = extend({}, next);
     next._normalized = true;
-    var params = assign(assign({}, current.params), next.params);
+    var params = extend(extend({}, current.params), next.params);
     if (current.name) {
       next.name = current.name;
       next.params = params;
@@ -1325,14 +1323,8 @@ function normalizeLocation (
   }
 }
 
-function assign (a, b) {
-  for (var key in b) {
-    a[key] = b[key];
-  }
-  return a
-}
-
 /*  */
+
 
 
 function createMatcher (
@@ -1402,8 +1394,8 @@ function createMatcher (
   ) {
     var originalRedirect = record.redirect;
     var redirect = typeof originalRedirect === 'function'
-        ? originalRedirect(createRoute(record, location, null, router))
-        : originalRedirect;
+      ? originalRedirect(createRoute(record, location, null, router))
+      : originalRedirect;
 
     if (typeof redirect === 'string') {
       redirect = { path: redirect };
@@ -1517,7 +1509,8 @@ function matchRoute (
     var key = regex.keys[i - 1];
     var val = typeof m[i] === 'string' ? decodeURIComponent(m[i]) : m[i];
     if (key) {
-      params[key.name] = val;
+      // Fix #1994: using * with props: true generates a param named 0
+      params[key.name || 'pathMatch'] = val;
     }
   }
 
@@ -1530,16 +1523,26 @@ function resolveRecordPath (path, record) {
 
 /*  */
 
+var positionStore = window.sessionStorage;
+var keyPrefix = 'scroll_';
 
-var positionStore = Object.create(null);
-
-function setupScroll () {
+function setupScroll (router) {
   // Fix for #1585 for Firefox
-  window.history.replaceState({ key: getStateKey() }, '');
+  // Fix for #2195 Add optional third attribute to workaround a bug in safari https://bugs.webkit.org/show_bug.cgi?id=182678
+  console.log('setupScroll');
+  if (router.options.scrollStoreKeyPrefix) { keyPrefix = router.options.scrollStoreKeyPrefix; }
+  window.history.replaceState({ key: getStateKey() }, '', window.location.href.replace(window.location.origin, ''));
   window.addEventListener('popstate', function (e) {
+    setPrevStateKey(getStateKey());
     saveScrollPosition();
     if (e.state && e.state.key) {
       setStateKey(e.state.key);
+    }
+  });
+  window.addEventListener('vue_router_state_keys_deleted', function (e) {
+    console.log('receive vue_router_state_keys_deleted', e.detail);
+    for (var i = 0; i < e.detail.length; i++) {
+      positionStore.removeItem(keyPrefix + e.detail[i]);
     }
   });
 }
@@ -1565,8 +1568,9 @@ function handleScroll (
 
   // wait until re-render finishes before scrolling
   router.app.$nextTick(function () {
+    console.log('scrolling');
     var position = getScrollPosition();
-    var shouldScroll = behavior(to, from, isPop ? position : null);
+    var shouldScroll = behavior.call(router, to, from, isPop ? position : null);
 
     if (!shouldScroll) {
       return
@@ -1574,7 +1578,7 @@ function handleScroll (
 
     if (typeof shouldScroll.then === 'function') {
       shouldScroll.then(function (shouldScroll) {
-        scrollToPosition((shouldScroll), position);
+        if (shouldScroll) { scrollToPosition((shouldScroll), position); }
       }).catch(function (err) {
         {
           assert(false, err.toString());
@@ -1589,17 +1593,17 @@ function handleScroll (
 function saveScrollPosition () {
   var key = getStateKey();
   if (key) {
-    positionStore[key] = {
+    positionStore.setItem(keyPrefix + key, JSON.stringify({
       x: window.pageXOffset,
       y: window.pageYOffset
-    };
+    }));
   }
 }
 
 function getScrollPosition () {
   var key = getStateKey();
   if (key) {
-    return positionStore[key]
+    return JSON.parse(positionStore.getItem(keyPrefix + key))
   }
 }
 
@@ -1657,6 +1661,7 @@ function scrollToPosition (shouldScroll, position) {
 
 /*  */
 
+
 var supportsPushState = inBrowser && (function () {
   var ua = window.navigator.userAgent;
 
@@ -1678,6 +1683,47 @@ var Time = inBrowser && window.performance && window.performance.now
   : Date;
 
 var _key = genKey();
+var _prevKey;
+var storeKey = 'state_keys';
+var _keys;
+
+function setupPushState (router) {
+  if (router.options.stateKeyStoreName) { storeKey = router.options.stateKeyStoreName; }
+  var storedKeys = window.sessionStorage.getItem(storeKey);
+  _keys = storedKeys ? JSON.parse(storedKeys) : [];
+  if (_keys.length === 0) {
+    window.dispatchEvent(new CustomEvent('vue_router_state_keys_init'));
+  }
+}
+
+function pushKey (currentKey, key) {
+  console.log(("pushKey: " + currentKey + " => " + key));
+  _prevKey = currentKey;
+  var idx = currentKey ? _keys.indexOf(currentKey) : -1;
+  if (idx === -1) {
+    if (currentKey) { console.log(("state key not found: " + currentKey)); }
+    _keys.push(key);
+  } else if (idx < _keys.length - 1) {
+    window.dispatchEvent(new CustomEvent('vue_router_state_keys_deleted', { detail: _keys.slice(idx + 1) }));
+    _keys.splice(idx + 1, _keys.length - idx - 1, key);
+  } else {
+    _keys.push(key);
+  }
+  window.sessionStorage.setItem(storeKey, JSON.stringify(_keys));
+}
+
+function replaceKey (currentKey, key) {
+  console.log(("replaceKey: " + currentKey + " => " + key));
+  var idx = currentKey ? _keys.indexOf(currentKey) : -1;
+  if (idx !== -1) {
+    window.dispatchEvent(new CustomEvent('vue_router_state_keys_deleted', { detail: _keys.slice(idx, idx + 1) }));
+    _keys.splice(idx, 1, key);
+  } else {
+    if (currentKey) { console.log(("state key not found: " + currentKey)); }
+    _keys.push(key);
+  }
+  window.sessionStorage.setItem(storeKey, JSON.stringify(_keys));
+}
 
 function genKey () {
   return Time.now().toFixed(3)
@@ -1691,17 +1737,29 @@ function setStateKey (key) {
   _key = key;
 }
 
+function getPrevStateKey () {
+  return _prevKey
+}
+
+function setPrevStateKey (key) {
+  _prevKey = key;
+}
+
 function pushState (url, replace) {
   saveScrollPosition();
   // try...catch the pushState call to get around Safari
   // DOM Exception 18 where it limits to 100 pushState calls
   var history = window.history;
   try {
+    var currentKey = _key;
     if (replace) {
+      _key = genKey();
       history.replaceState({ key: _key }, '', url);
+      replaceKey(currentKey, _key);
     } else {
       _key = genKey();
       history.pushState({ key: _key }, '', url);
+      pushKey(currentKey, _key);
     }
   } catch (e) {
     window.location[replace ? 'replace' : 'assign'](url);
@@ -2128,7 +2186,10 @@ function poll (
   key,
   isValid
 ) {
-  if (instances[key]) {
+  if (
+    instances[key] &&
+    !instances[key]._isBeingDestroyed // do not reuse being destroyed instance
+  ) {
     cb(instances[key]);
   } else if (isValid()) {
     setTimeout(function () {
@@ -2139,17 +2200,26 @@ function poll (
 
 /*  */
 
-
 var HTML5History = (function (History$$1) {
   function HTML5History (router, base) {
     var this$1 = this;
 
     History$$1.call(this, router, base);
 
-    var expectScroll = router.options.scrollBehavior;
+    setupPushState(router);
 
-    if (expectScroll) {
-      setupScroll();
+    var expectScroll = router.options.scrollBehavior;
+    var supportsScroll = supportsPushState && expectScroll;
+
+    if (supportsScroll) {
+      // restore state key after reloading current page
+      if (window.history.state && window.history.state.key) {
+        console.log(("restore state key after reloading current page: " + (window.history.state.key)));
+        setStateKey(window.history.state.key);
+      } else {
+        pushKey(null, getStateKey());
+      }
+      setupScroll(router);
     }
 
     var initLocation = getLocation(this.base);
@@ -2164,7 +2234,7 @@ var HTML5History = (function (History$$1) {
       }
 
       this$1.transitionTo(location, function (route) {
-        if (expectScroll) {
+        if (supportsScroll) {
           handleScroll(router, route, current, true);
         }
       });
@@ -2226,7 +2296,6 @@ function getLocation (base) {
 }
 
 /*  */
-
 
 var HashHistory = (function (History$$1) {
   function HashHistory (router, base, fallback) {
@@ -2365,7 +2434,6 @@ function replaceHash (path) {
 
 /*  */
 
-
 var AbstractHistory = (function (History$$1) {
   function AbstractHistory (router, base) {
     History$$1.call(this, router, base);
@@ -2423,6 +2491,8 @@ var AbstractHistory = (function (History$$1) {
 }(History));
 
 /*  */
+
+
 
 var VueRouter = function VueRouter (options) {
   if ( options === void 0 ) options = {};
@@ -2602,6 +2672,14 @@ VueRouter.prototype.addRoutes = function addRoutes (routes) {
   if (this.history.current !== START) {
     this.history.transitionTo(this.history.getCurrentLocation());
   }
+};
+
+VueRouter.prototype.getStateKey = function getStateKey$1 () {
+  return getStateKey()
+};
+
+VueRouter.prototype.getPrevStateKey = function getPrevStateKey$1 () {
+  return getPrevStateKey()
 };
 
 Object.defineProperties( VueRouter.prototype, prototypeAccessors );

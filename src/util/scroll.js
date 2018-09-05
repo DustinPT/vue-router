@@ -2,18 +2,28 @@
 
 import type Router from '../index'
 import { assert } from './warn'
-import { getStateKey, setStateKey } from './push-state'
+import { getStateKey, setStateKey, setPrevStateKey } from './push-state'
 
-const positionStore = Object.create(null)
+const positionStore = window.sessionStorage
+let keyPrefix = 'scroll_'
 
-export function setupScroll () {
+export function setupScroll (router: Router) {
   // Fix for #1585 for Firefox
   // Fix for #2195 Add optional third attribute to workaround a bug in safari https://bugs.webkit.org/show_bug.cgi?id=182678
+  console.log('setupScroll')
+  if (router.options.scrollStoreKeyPrefix) keyPrefix = router.options.scrollStoreKeyPrefix
   window.history.replaceState({ key: getStateKey() }, '', window.location.href.replace(window.location.origin, ''))
   window.addEventListener('popstate', e => {
+    setPrevStateKey(getStateKey())
     saveScrollPosition()
     if (e.state && e.state.key) {
       setStateKey(e.state.key)
+    }
+  })
+  window.addEventListener('vue_router_state_keys_deleted', e => {
+    console.log('receive vue_router_state_keys_deleted', e.detail)
+    for (let i = 0; i < e.detail.length; i++) {
+      positionStore.removeItem(keyPrefix + e.detail[i])
     }
   })
 }
@@ -39,6 +49,7 @@ export function handleScroll (
 
   // wait until re-render finishes before scrolling
   router.app.$nextTick(() => {
+    console.log('scrolling')
     const position = getScrollPosition()
     const shouldScroll = behavior.call(router, to, from, isPop ? position : null)
 
@@ -48,7 +59,7 @@ export function handleScroll (
 
     if (typeof shouldScroll.then === 'function') {
       shouldScroll.then(shouldScroll => {
-        scrollToPosition((shouldScroll: any), position)
+        if (shouldScroll) scrollToPosition((shouldScroll: any), position)
       }).catch(err => {
         if (process.env.NODE_ENV !== 'production') {
           assert(false, err.toString())
@@ -63,17 +74,17 @@ export function handleScroll (
 export function saveScrollPosition () {
   const key = getStateKey()
   if (key) {
-    positionStore[key] = {
+    positionStore.setItem(keyPrefix + key, JSON.stringify({
       x: window.pageXOffset,
       y: window.pageYOffset
-    }
+    }))
   }
 }
 
 function getScrollPosition (): ?Object {
   const key = getStateKey()
   if (key) {
-    return positionStore[key]
+    return JSON.parse(positionStore.getItem(keyPrefix + key))
   }
 }
 

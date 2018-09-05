@@ -44,6 +44,8 @@ declare type RouterOptions = {
     from: Route,
     savedPosition: ?Position
   ) => PositionResult | Promise<PositionResult>;
+  scrollStoreKeyPrefix?: string;
+  stateKeyStoreName?: string;
 }
 
 declare type RedirectOption = RawLocation | ((to: Route) => RawLocation)

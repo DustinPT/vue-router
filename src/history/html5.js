@@ -5,17 +5,26 @@ import { History } from './base'
 import { cleanPath } from '../util/path'
 import { START } from '../util/route'
 import { setupScroll, handleScroll } from '../util/scroll'
-import { pushState, replaceState, supportsPushState } from '../util/push-state'
+import { setStateKey, pushState, replaceState, supportsPushState, pushKey, getStateKey, setupPushState } from '../util/push-state'
 
 export class HTML5History extends History {
   constructor (router: Router, base: ?string) {
     super(router, base)
 
+    setupPushState(router)
+
     const expectScroll = router.options.scrollBehavior
     const supportsScroll = supportsPushState && expectScroll
 
     if (supportsScroll) {
-      setupScroll()
+      // restore state key after reloading current page
+      if (window.history.state && window.history.state.key) {
+        console.log(`restore state key after reloading current page: ${window.history.state.key}`)
+        setStateKey(window.history.state.key)
+      } else {
+        pushKey(null, getStateKey())
+      }
+      setupScroll(router)
     }
 
     const initLocation = getLocation(this.base)

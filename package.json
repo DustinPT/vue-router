@@ -1,5 +1,5 @@
 {
-  "name": "vue-router",
+  "name": "@incoding/vue-router",
   "version": "3.0.1",
   "description": "Official router for Vue.js 2",
   "author": "Evan You",
@@ -36,7 +36,8 @@
     "test:types": "tsc -p types/test",
     "docs": "vuepress dev docs",
     "docs:build": "vuepress build docs",
-    "release": "bash build/release.sh"
+    "release": "bash build/release.sh",
+    "publish": "yarn publish --registry=https://registry.npmjs.org/ --access public"
   },
   "devDependencies": {
     "babel-core": "^6.24.1",

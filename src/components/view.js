@@ -13,6 +13,7 @@ export default {
   render (_, { props, children, parent, data }) {
     // used by devtools to display a router-view badge
     data.routerView = true
+    data.routerViewName = props.name
 
     // directly use parent context's createElement() function
     // so that components rendered by router-view can resolve named slots

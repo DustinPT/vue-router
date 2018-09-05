@@ -41,6 +41,10 @@ export declare class VueRouter {
   };
 
   static install: PluginFunction<never>;
+
+  getStateKey (): string;
+
+  getPrevStateKey (): string;
 }
 
 type Position = { x: number, y: number };
