@@ -1521,6 +1521,7 @@ function resolveRecordPath (path, record) {
 
 var positionStore = window.sessionStorage;
 var keyPrefix = 'scroll_';
+var ignorePopState = true;
 
 function setupScroll (router) {
   // Fix for #1585 for Firefox
@@ -1529,11 +1530,17 @@ function setupScroll (router) {
   if (router.options.scrollStoreKeyPrefix) { keyPrefix = router.options.scrollStoreKeyPrefix; }
   window.history.replaceState({ key: getStateKey() }, '', window.location.href.replace(window.location.origin, ''));
   window.addEventListener('popstate', function (e) {
+    if (ignorePopState) { return }
     setPrevStateKey(getStateKey());
     saveScrollPosition();
     if (e.state && e.state.key) {
       setStateKey(e.state.key);
     }
+  });
+  router.onOpenUrl(function (to, from, next) {
+    console.log('saveScrollPosition on open url');
+    saveScrollPosition();
+    next();
   });
   window.addEventListener('vue_router_state_keys_deleted', function (e) {
     console.log('receive vue_router_state_keys_deleted', e.detail);
@@ -1555,6 +1562,7 @@ function handleScroll (
 
   var behavior = router.options.scrollBehavior;
   if (!behavior) {
+    ignorePopState = false;
     return
   }
 
@@ -1569,6 +1577,7 @@ function handleScroll (
     var shouldScroll = behavior.call(router, to, from, isPop ? position : null);
 
     if (!shouldScroll) {
+      ignorePopState = false;
       return
     }
 
@@ -1579,9 +1588,12 @@ function handleScroll (
         if (process.env.NODE_ENV !== 'production') {
           assert(false, err.toString());
         }
+      }).finally(function () {
+        ignorePopState = false;
       });
     } else {
       scrollToPosition(shouldScroll, position);
+      ignorePopState = false;
     }
   });
 }
@@ -2488,8 +2500,6 @@ var AbstractHistory = (function (History$$1) {
 
 /*  */
 
-
-
 var VueRouter = function VueRouter (options) {
   if ( options === void 0 ) options = {};
 
@@ -2499,6 +2509,7 @@ var VueRouter = function VueRouter (options) {
   this.beforeHooks = [];
   this.resolveHooks = [];
   this.afterHooks = [];
+  this.openUrlHooks = [];
   this.matcher = createMatcher(options.routes || [], this);
 
   var mode = options.mode || 'hash';
@@ -2558,12 +2569,21 @@ VueRouter.prototype.init = function init (app /* Vue component instance */) {
     return
   }
 
+  var expectScroll = this.options.scrollBehavior;
+  var supportsScroll = supportsPushState && expectScroll;
+
   this.app = app;
 
   var history = this.history;
 
   if (history instanceof HTML5History) {
-    history.transitionTo(history.getCurrentLocation());
+    history.transitionTo(history.getCurrentLocation(), function (route) {
+      if (supportsScroll) {
+        app.$nextTick(function () {
+          handleScroll(this$1, route, null, true);
+        });
+      }
+    });
   } else if (history instanceof HashHistory) {
     var setupHashListener = function () {
       history.setupListeners();
@@ -2592,6 +2612,10 @@ VueRouter.prototype.beforeResolve = function beforeResolve (fn) {
 
 VueRouter.prototype.afterEach = function afterEach (fn) {
   return registerHook(this.afterHooks, fn)
+};
+
+VueRouter.prototype.onOpenUrl = function onOpenUrl (fn) {
+  return registerHook(this.openUrlHooks, fn)
 };
 
 VueRouter.prototype.onReady = function onReady (cb, errorCb) {
@@ -2678,7 +2702,25 @@ VueRouter.prototype.getPrevStateKey = function getPrevStateKey$1 () {
   return getPrevStateKey()
 };
 
+VueRouter.prototype.openUrl = function openUrl (url) {
+  if (this.openUrlHooks.length === 0) {
+    window.open(url, '_self');
+  } else {
+    runOpenUrlHooks(this, url, 0);
+  }
+};
+
 Object.defineProperties( VueRouter.prototype, prototypeAccessors );
+
+function runOpenUrlHooks (router, url, idx) {
+  router.openUrlHooks[idx](url, router.currentRoute, function () {
+    if (idx < router.openUrlHooks.length - 1) {
+      runOpenUrlHooks(router, url, idx + 1);
+    } else {
+      window.open(url, '_self');
+    }
+  });
+}
 
 function registerHook (list, fn) {
   list.push(fn);

@@ -27,6 +27,12 @@ declare type NavigationGuard = (
 
 declare type AfterNavigationHook = (to: Route, from: Route) => any
 
+declare type OpenUrlGuard = (
+    to: string,
+    from: Route,
+    next: () => void
+) => any
+
 type Position = { x: number, y: number };
 type PositionResult = Position | { selector: string, offset?: Position } | void;
 

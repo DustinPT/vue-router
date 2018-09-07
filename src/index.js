@@ -14,6 +14,7 @@ import { HTML5History } from './history/html5'
 import { AbstractHistory } from './history/abstract'
 
 import type { Matcher } from './create-matcher'
+import { handleScroll } from './util/scroll'
 
 export default class VueRouter {
   static install: () => void;
@@ -31,6 +32,7 @@ export default class VueRouter {
   beforeHooks: Array<?NavigationGuard>;
   resolveHooks: Array<?NavigationGuard>;
   afterHooks: Array<?AfterNavigationHook>;
+  openUrlHooks: Array<?OpenUrlGuard>;
 
   constructor (options: RouterOptions = {}) {
     this.app = null
@@ -39,6 +41,7 @@ export default class VueRouter {
     this.beforeHooks = []
     this.resolveHooks = []
     this.afterHooks = []
+    this.openUrlHooks = []
     this.matcher = createMatcher(options.routes || [], this)
 
     let mode = options.mode || 'hash'
@@ -94,12 +97,21 @@ export default class VueRouter {
       return
     }
 
+    const expectScroll = this.options.scrollBehavior
+    const supportsScroll = supportsPushState && expectScroll
+
     this.app = app
 
     const history = this.history
 
     if (history instanceof HTML5History) {
-      history.transitionTo(history.getCurrentLocation())
+      history.transitionTo(history.getCurrentLocation(), route => {
+        if (supportsScroll) {
+          app.$nextTick(() => {
+            handleScroll(this, route, null, true)
+          })
+        }
+      })
     } else if (history instanceof HashHistory) {
       const setupHashListener = () => {
         history.setupListeners()
@@ -128,6 +140,10 @@ export default class VueRouter {
 
   afterEach (fn: Function): Function {
     return registerHook(this.afterHooks, fn)
+  }
+
+  onOpenUrl (fn: Function): Function {
+    return registerHook(this.openUrlHooks, fn)
   }
 
   onReady (cb: Function, errorCb?: Function) {
@@ -220,6 +236,24 @@ export default class VueRouter {
   getPrevStateKey () {
     return getPrevStateKey()
   }
+
+  openUrl (url: string) {
+    if (this.openUrlHooks.length === 0) {
+      window.open(url, '_self')
+    } else {
+      runOpenUrlHooks(this, url, 0)
+    }
+  }
+}
+
+function runOpenUrlHooks (router, url, idx) {
+  router.openUrlHooks[idx](url, router.currentRoute, () => {
+    if (idx < router.openUrlHooks.length - 1) {
+      runOpenUrlHooks(router, url, idx + 1)
+    } else {
+      window.open(url, '_self')
+    }
+  })
 }
 
 function registerHook (list: Array<any>, fn: Function): Function {

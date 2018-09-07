@@ -11,7 +11,11 @@ export type NavigationGuard = (
   from: Route,
   next: (to?: RawLocation | false | ((vm: Vue) => any) | void) => void
 ) => any
-
+export declare type OpenUrlGuard = (
+    to: string,
+    from: Route,
+    next: () => void
+) => any
 export declare class VueRouter {
   constructor (options?: RouterOptions);
 
@@ -45,6 +49,10 @@ export declare class VueRouter {
   getStateKey (): string;
 
   getPrevStateKey (): string;
+
+  onOpenUrl (guard: OpenUrlGuard): Function;
+
+  openUrl (url: string): void;
 }
 
 type Position = { x: number, y: number };

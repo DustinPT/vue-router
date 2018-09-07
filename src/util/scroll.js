@@ -6,6 +6,7 @@ import { getStateKey, setStateKey, setPrevStateKey } from './push-state'
 
 const positionStore = window.sessionStorage
 let keyPrefix = 'scroll_'
+let ignorePopState = true
 
 export function setupScroll (router: Router) {
   // Fix for #1585 for Firefox
@@ -14,11 +15,17 @@ export function setupScroll (router: Router) {
   if (router.options.scrollStoreKeyPrefix) keyPrefix = router.options.scrollStoreKeyPrefix
   window.history.replaceState({ key: getStateKey() }, '', window.location.href.replace(window.location.origin, ''))
   window.addEventListener('popstate', e => {
+    if (ignorePopState) return
     setPrevStateKey(getStateKey())
     saveScrollPosition()
     if (e.state && e.state.key) {
       setStateKey(e.state.key)
     }
+  })
+  router.onOpenUrl((to, from, next) => {
+    console.log('saveScrollPosition on open url')
+    saveScrollPosition()
+    next()
   })
   window.addEventListener('vue_router_state_keys_deleted', e => {
     console.log('receive vue_router_state_keys_deleted', e.detail)
@@ -40,6 +47,7 @@ export function handleScroll (
 
   const behavior = router.options.scrollBehavior
   if (!behavior) {
+    ignorePopState = false
     return
   }
 
@@ -54,6 +62,7 @@ export function handleScroll (
     const shouldScroll = behavior.call(router, to, from, isPop ? position : null)
 
     if (!shouldScroll) {
+      ignorePopState = false
       return
     }
 
@@ -64,9 +73,12 @@ export function handleScroll (
         if (process.env.NODE_ENV !== 'production') {
           assert(false, err.toString())
         }
+      }).finally(() => {
+        ignorePopState = false
       })
     } else {
       scrollToPosition(shouldScroll, position)
+      ignorePopState = false
     }
   })
 }

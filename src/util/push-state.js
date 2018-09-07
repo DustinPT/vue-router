@@ -2,7 +2,7 @@
 
 import { inBrowser } from './dom'
 import { saveScrollPosition } from './scroll'
-import type Router from "../index";
+import type Router from '../index'
 
 export const supportsPushState = inBrowser && (function () {
   const ua = window.navigator.userAgent
